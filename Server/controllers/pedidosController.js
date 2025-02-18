@@ -69,7 +69,7 @@ export const createPedido = async (req, res) => {
 // Función para obtener todos los pedidos
 export const getAllPedidos = async (req, res) => {
   try {
-    const pedidos = await Pedidos.find();
+    const pedidos = await Pedidos.find().sort({ _id: -1 }); // Ordenar por más reciente
     res.status(200).json(pedidos);
   } catch (error) {
     console.error(error);

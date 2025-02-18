@@ -1,21 +1,32 @@
 import React, { useState } from "react";
 import axios from "axios";
 
-const API_URL = "http://localhost:3000";
+const API_URL = "http://169.254.192.108:3000";
 
 function SolicitarPedido() {
   const [description, setDescription] = useState("");
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState("");
   const [time, setTime] = useState("");
   const [images, setImages] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
-  // Manejo de cambio de imagen
   const handleImagenChange = (e) => {
     const files = Array.from(e.target.files);
-    setImages(files);
+
+    if (images.length + files.length > 5) {
+      setErrorMessage("Solo puedes subir un máximo de 5 imágenes.");
+      return;
+    }
+
+    setImages((prevImages) => [...prevImages, ...files]);
+    setErrorMessage(""); // Limpiar el mensaje de error si la selección es válida
   };
 
-  // Función para enviar datos al backend
+  const eliminarImagen = (index) => {
+    setImages(images.filter((_, i) => i !== index));
+  };
+
   const enviarSolicitud = async (e) => {
     e.preventDefault();
 
@@ -23,6 +34,8 @@ function SolicitarPedido() {
       alert("Por favor, completa todos los campos.");
       return;
     }
+
+    setLoading(true);
 
     const formData = new FormData();
     formData.append("description", description);
@@ -37,20 +50,23 @@ function SolicitarPedido() {
 
       alert("Pedido solicitado correctamente.");
       setDescription("");
-      setQuantity(1);
+      setQuantity("");
       setTime("");
       setImages([]);
     } catch (error) {
       console.error("Error al enviar la solicitud:", error);
       alert("Hubo un error al enviar el pedido.");
+    } finally {
+      setLoading(false);
     }
   };
-  const handleSubmit = () => {
-    console.log("submit");
-  };
+
   return (
     <div style={styles.container}>
       <h2 style={styles.title}>Solicitar Pedido</h2>
+      {loading && <p style={styles.loadingText}>Cargando...</p>}
+      {errorMessage && <p style={styles.errorText}>{errorMessage}</p>}
+
       <form onSubmit={enviarSolicitud} style={styles.form}>
         <textarea
           type="text"
@@ -62,26 +78,24 @@ function SolicitarPedido() {
         ></textarea>
 
         <input
-          type="number"
+          type="text"
           placeholder="Cantidad"
           value={quantity}
-          onChange={(e) => setQuantity(Number(e.target.value))}
-          min="1"
+          onChange={(e) => setQuantity(e.target.value)}
           required
           style={styles.input}
         />
 
         <input
-          type="number"
+          type="text"
           placeholder="Tiempo Estimado (días)"
           value={time}
           onChange={(e) => setTime(e.target.value)}
-          min="1"
           required
           style={styles.input}
         />
 
-        {/* Botón de imagen interactivo */}
+        {/* Selector de imágenes con avatar */}
         <label style={styles.imageLabel}>
           <input
             type="file"
@@ -90,19 +104,33 @@ function SolicitarPedido() {
             onChange={handleImagenChange}
             style={styles.fileInput}
           />
-          {images.length > 0 ? (
-            <img
-              src={URL.createObjectURL(images[0])}
-              alt="Seleccionar"
-              style={styles.avatar}
-            />
-          ) : (
-            <div style={styles.avatarPlaceholder}>+</div>
-          )}
+          <div style={styles.avatarPlaceholder}>+</div>
         </label>
 
-        <button type="submit" style={styles.submitButton}>
-          Enviar Solicitud
+        {/* Previsualización de imágenes con opción de eliminar */}
+        {images.length > 0 && (
+          <div style={styles.imageGrid}>
+            {images.map((image, index) => (
+              <div key={index} style={styles.imageContainer}>
+                <img
+                  src={URL.createObjectURL(image)}
+                  alt={`Imagen ${index + 1}`}
+                  style={styles.imagePreview}
+                />
+                <button
+                  type="button"
+                  onClick={() => eliminarImagen(index)}
+                  style={styles.deleteButton}
+                >
+                  ✖
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button type="submit" style={styles.submitButton} disabled={loading}>
+          {loading ? "Enviando..." : "Enviar Solicitud"}
         </button>
       </form>
     </div>
@@ -134,6 +162,9 @@ const styles = {
     border: "1px solid #ccc",
     fontSize: "16px",
   },
+  fileInput: {
+    display: "none",
+  },
   imageLabel: {
     cursor: "pointer",
     display: "flex",
@@ -146,46 +177,45 @@ const styles = {
     border: "2px dashed #ccc",
     marginBottom: "10px",
     overflow: "hidden",
-  },
-  fileInput: {
-    display: "none",
-  },
-  avatar: {
-    width: "100%",
-    height: "100%",
-    objectFit: "cover",
-    borderRadius: "50%",
+    position: "relative",
   },
   avatarPlaceholder: {
     fontSize: "40px",
     color: "#aaa",
     fontWeight: "bold",
   },
-  imagePreviewContainer: {
+  imageGrid: {
     display: "flex",
     flexWrap: "wrap",
     gap: "10px",
     justifyContent: "center",
-    marginTop: "10px",
+    marginBottom: "10px",
+  },
+  imageContainer: {
+    position: "relative",
+    display: "inline-block",
   },
   imagePreview: {
     width: "80px",
     height: "80px",
     objectFit: "cover",
-    borderRadius: "10px",
-    border: "1px solid #ddd",
+    borderRadius: "50%",
+    border: "2px solid #ccc",
   },
-  textarea: {
-    width: "100%",
-    minHeight: "100px",
-    maxHeight: "200px",
-    overflowY: "auto",
-    padding: "10px",
-    margin: "8px 0",
-    borderRadius: "5px",
-    border: "1px solid #ccc",
-    fontSize: "16px",
-    resize: "vertical",
+  deleteButton: {
+    position: "absolute",
+    top: "-5px",
+    right: "-5px",
+    background: "red",
+    color: "white",
+    border: "none",
+    borderRadius: "50%",
+    width: "20px",
+    height: "20px",
+    cursor: "pointer",
+    fontSize: "14px",
+    lineHeight: "16px",
+    textAlign: "center",
   },
   submitButton: {
     marginTop: "10px",
@@ -196,6 +226,18 @@ const styles = {
     borderRadius: "5px",
     cursor: "pointer",
     fontSize: "16px",
+  },
+  loadingText: {
+    fontSize: "16px",
+    color: "#ff6600",
+    fontWeight: "bold",
+    marginBottom: "10px",
+  },
+  errorText: {
+    fontSize: "14px",
+    color: "red",
+    fontWeight: "bold",
+    marginBottom: "10px",
   },
 };
 

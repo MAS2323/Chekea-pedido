@@ -1,19 +1,23 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { BottomNavigation, BottomNavigationAction, Paper } from "@mui/material";
-import RequestPageIcon from "@mui/icons-material/RequestPage"; 
-import ListAltIcon from "@mui/icons-material/ListAlt"; 
+import RequestPageIcon from "@mui/icons-material/RequestPage";
+import ListAltIcon from "@mui/icons-material/ListAlt";
 import SolicitarPedido from "./SolicitarPedido";
 import MisPedidos from "./MisPedidos";
 import "../App.css";
 
 function Menu() {
-  const [vista, setVista] = useState("solicitar");
+  // Manejo de los estados en 
+  const [vista, setVista] = useState(
+    localStorage.getItem("vista") || "solicitar"
+  );
+
+  useEffect(() => {
+    localStorage.setItem("vista", vista);
+  }, [vista]);
+
   return (
     <div className="App">
-      {/* <header className="App-header">
-      <h1>Solicitud de Pedidos</h1>
-    </header> */}
-
       <main>
         {vista === "solicitar" ? <SolicitarPedido /> : <MisPedidos />}
       </main>
@@ -25,7 +29,9 @@ function Menu() {
       >
         <BottomNavigation
           value={vista}
-          onChange={(event, newValue) => setVista(newValue)}
+          onChange={(event, newValue) => {
+            setVista(newValue);
+          }}
           showLabels
         >
           <BottomNavigationAction

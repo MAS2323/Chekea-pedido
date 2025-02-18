@@ -12,10 +12,10 @@ const PedidosSchema = mongoose.Schema(
       },
     ],
     quantity: {
-      type: Number,
+      type: String,
     },
     time: {
-      type: Number,
+      type: String,
     },
   },
   {
