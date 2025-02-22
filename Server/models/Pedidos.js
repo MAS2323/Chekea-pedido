@@ -4,6 +4,7 @@ const PedidosSchema = mongoose.Schema(
   {
     description: {
       type: String,
+      required: true, 
     },
     image: [
       {
@@ -13,9 +14,16 @@ const PedidosSchema = mongoose.Schema(
     ],
     quantity: {
       type: String,
+      required: true, 
     },
     time: {
       type: String,
+      required: true,
+    },
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
     },
   },
   {

@@ -23,13 +23,13 @@ if (!fs.existsSync(uploadDir)) {
 }
 
 app.use(bodyParser.urlencoded({ extended: false }));
-app.use(bodyParser.json());
 
 // Servir archivos estáticos desde el directorio "uploads"
 app.use(express.static(uploadDir));
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(bodyParser.json());
 app.use("/", userRouter);
 app.use("/", pedidosRouter);
 

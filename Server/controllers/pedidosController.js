@@ -4,10 +4,24 @@ import { uploadImage, deleteImage } from "../middlewares/cloudinary.js";
 import fs from "node:fs";
 
 // Función para crear un nuevo pedido
-export const createPedido = async (req, res) => {
+const createPedido = async (req, res) => {
   try {
     const { description, quantity, time } = req.body;
 
+    // Verificar si el usuario está autenticado
+    const userId = req.user?._id; 
+    if (!userId) {
+      return res.status(401).json({ message: "Usuario no autenticado" });
+    }
+
+    // Validar campos obligatorios
+    if (!description || !quantity || !time) {
+      return res
+        .status(400)
+        .json({ message: "Todos los campos son obligatorios" });
+    }
+
+    // Subir imágenes a Cloudinary
     if (!req.files || req.files.length === 0) {
       return res
         .status(400)
@@ -16,7 +30,6 @@ export const createPedido = async (req, res) => {
 
     const folderName = "pedidos_chekea";
     const images = [];
-
     for (const file of req.files) {
       try {
         const result = await uploadImage(file.path, folderName);
@@ -24,12 +37,9 @@ export const createPedido = async (req, res) => {
           url: result.url,
           public_id: result.public_id,
         });
-
-        // Eliminar el archivo temporal
-        fs.unlinkSync(file.path);
+        fs.unlinkSync(file.path); // Eliminar archivo temporal
       } catch (error) {
         console.error("Error al subir la imagen:", error);
-
         // Eliminar imágenes ya subidas
         if (images.length > 0) {
           for (const image of images) {
@@ -38,7 +48,6 @@ export const createPedido = async (req, res) => {
             );
           }
         }
-
         return res.status(500).json({
           error: "Error al subir la imagen a Cloudinary",
           details: error.message,
@@ -46,17 +55,13 @@ export const createPedido = async (req, res) => {
       }
     }
 
-    if (!description || !quantity || !time) {
-      return res
-        .status(400)
-        .json({ message: "Todos los campos son obligatorios" });
-    }
-
+    // Crear el pedido asociado al usuario
     const newPedido = await Pedidos.create({
       description,
       quantity,
       time,
       image: images,
+      user: userId, // Asociar el pedido al usuario autenticado
     });
 
     res.status(201).json(newPedido);
@@ -67,9 +72,9 @@ export const createPedido = async (req, res) => {
 };
 
 // Función para obtener todos los pedidos
-export const getAllPedidos = async (req, res) => {
+const getAllPedidos = async (req, res) => {
   try {
-    const pedidos = await Pedidos.find().sort({ _id: -1 }); // Ordenar por más reciente
+    const pedidos = await Pedidos.find().sort({ _id: -1 }); 
     res.status(200).json(pedidos);
   } catch (error) {
     console.error(error);
@@ -77,33 +82,30 @@ export const getAllPedidos = async (req, res) => {
   }
 };
 
-// Función para obtener un pedido por ID
-export const getPedidoById = async (req, res) => {
+const getPedidosByUserId = async (req, res) => {
   try {
-    const { id } = req.params;
-
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: "ID de pedido no válido" });
+    const userId = req.user?._id; // Obtener el ID del usuario autenticado
+    if (!userId) {
+      return res.status(401).json({ message: "Usuario no autenticado" });
     }
 
-    const pedido = await Pedidos.findById(id);
+    // Buscar pedidos asociados al usuario
+    const pedidos = await Pedidos.find({ user: userId }).sort({ _id: -1 }); 
 
-    if (!pedido) {
-      return res.status(404).json({ message: "Pedido no encontrado" });
-    }
-
-    res.status(200).json(pedido);
+    res.status(200).json(pedidos);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Error al obtener el pedido" });
+    res
+      .status(500)
+      .json({ message: "Error al obtener los pedidos del usuario" });
   }
 };
-
 // Función para actualizar un pedido
-export const updatePedido = async (req, res) => {
+const updatePedido = async (req, res) => {
   try {
     const { id } = req.params;
     const { description, quantity, time } = req.body;
+    const userId = req.user?._id;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ message: "ID de pedido no válido" });
@@ -115,10 +117,16 @@ export const updatePedido = async (req, res) => {
       return res.status(404).json({ message: "Pedido no encontrado" });
     }
 
-    // Manejar imágenes
+    // Verificar que el pedido pertenezca al usuario autenticado
+    if (existingPedido.user.toString() !== userId) {
+      return res
+        .status(403)
+        .json({ message: "No tienes permiso para actualizar este pedido" });
+    }
+
+    // Manejar imágenes (igual que antes)
     let updatedImages = existingPedido.image;
     if (req.files && req.files.length > 0) {
-      // Eliminar imágenes antiguas
       await Promise.all(
         existingPedido.image.map(async (image) => {
           try {
@@ -132,12 +140,11 @@ export const updatePedido = async (req, res) => {
         })
       );
 
-      // Subir nuevas imágenes
       const folderName = "pedidos_chekea";
       updatedImages = await Promise.all(
         req.files.map(async (file) => {
           const uploadResult = await uploadImage(file.path, folderName);
-          fs.unlinkSync(file.path); // Eliminar archivo local
+          fs.unlinkSync(file.path);
           return {
             url: uploadResult.url,
             public_id: uploadResult.public_id,
@@ -163,23 +170,28 @@ export const updatePedido = async (req, res) => {
 };
 
 // Función para eliminar un pedido
-export const deletePedido = async (req, res) => {
+const deletePedido = async (req, res) => {
   try {
     const { id } = req.params;
+    const userId = req.user?._id;
 
-    // Verificar si el ID es válido
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ message: "ID de pedido no válido" });
     }
 
-    // Obtener el pedido actual
     const pedido = await Pedidos.findById(id);
-
     if (!pedido) {
       return res.status(404).json({ message: "Pedido no encontrado" });
     }
 
-    // Eliminar las imágenes de Cloudinary
+    // Verificar que el pedido pertenezca al usuario autenticado
+    if (pedido.user.toString() !== userId) {
+      return res
+        .status(403)
+        .json({ message: "No tienes permiso para eliminar este pedido" });
+    }
+
+    // Eliminar imágenes de Cloudinary
     await Promise.all(
       pedido.image.map(async (image) => {
         await deleteImage(image.public_id);
@@ -188,7 +200,6 @@ export const deletePedido = async (req, res) => {
 
     // Eliminar el pedido de la base de datos
     await Pedidos.findByIdAndDelete(id);
-
     res
       .status(200)
       .json({ message: "Pedido y sus imágenes eliminados correctamente" });
@@ -196,4 +207,12 @@ export const deletePedido = async (req, res) => {
     console.error(error);
     res.status(500).json({ message: "Error al eliminar el pedido" });
   }
+};
+
+export default {
+  createPedido,
+  getAllPedidos,
+  updatePedido,
+  deletePedido,
+  getPedidosByUserId,
 };

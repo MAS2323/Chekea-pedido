@@ -24,7 +24,7 @@ app.post("/images/multi", upload.array("images", 6), (req, res) => {
 function saveImage(file) {
   const newPath = path.join(__dirname, "./public/uploads", file.originalname);
   if (fs.existsSync(file.path)) {
-    fs.renameSync(file.path, newPath);
+    fs.renameSync(file.path, newPath); // Renombrar y mover archivo
   }
 
   return newPath;
