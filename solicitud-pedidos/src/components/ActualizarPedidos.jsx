@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
+import { CircularProgress } from "@mui/material";
 
 const API_URL = "http://localhost:3000";
 
@@ -15,17 +16,33 @@ function ActualizarPedidos() {
   });
   const [selectedImages, setSelectedImages] = useState([]);
   const [imagePreviews, setImagePreviews] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isSubir, setisSubir] = useState(false);
+  const userId = localStorage.getItem("userId");
 
   useEffect(() => {
     const fetchPedido = async () => {
-      try {
-        const response = await axios.get(`${API_URL}/pedidos/${id}`);
-        setPedido(response.data);
-        setImagePreviews(response.data.image.map((img) => img.url));
-      } catch (error) {
-        console.error("Error al obtener el pedido:", error);
+      // Verifica si hay un pedido guardado con el ID específico
+      const storedPedido = localStorage.getItem(`pedido_${id}`);
+
+      if (storedPedido) {
+        setPedido(JSON.parse(storedPedido)); // Usa los datos almacenados
+        setImagePreviews(JSON.parse(storedPedido).image.map((img) => img.url));
+        setLoading(false);
+      } else {
+        try {
+          const response = await axios.get(`${API_URL}/pedidos/${id}`);
+          setPedido(response.data);
+          setImagePreviews(response.data.image.map((img) => img.url));
+          localStorage.setItem(`pedido_${id}`, JSON.stringify(response.data)); // Guarda el pedido en localStorage con su ID
+        } catch (error) {
+          console.error("Error al obtener el pedido:", error);
+        } finally {
+          setLoading(false);
+        }
       }
     };
+
     fetchPedido();
   }, [id]);
 
@@ -45,7 +62,7 @@ function ActualizarPedidos() {
     if (publicId) {
       try {
         // Eliminar la imagen de Cloudinary
-        await axios.delete(`${API_URL}/cloudinary/delete`, {
+        await axios.delete(`${API_URL}/cloudinary/delete/${userId}`, {
           data: { public_id: publicId },
         });
       } catch (error) {
@@ -60,6 +77,7 @@ function ActualizarPedidos() {
   // Manejar la actualización del pedido
   const handleActualizar = async () => {
     try {
+      setisSubir(true);
       const formData = new FormData();
       formData.append("description", pedido.description);
       formData.append("time", pedido.time);
@@ -79,89 +97,118 @@ function ActualizarPedidos() {
       navigate("/");
     } catch (error) {
       console.error("Error al actualizar el pedido:", error);
+    } finally {
+      setisSubir(false);
     }
   };
 
   // Manejar la eliminación del pedido
   const handleEliminar = async () => {
+    setisSubir(true);
+
     try {
       await axios.delete(`${API_URL}/pedidos/${id}`);
       alert("Pedido eliminado correctamente");
       navigate("/");
     } catch (error) {
       console.error("Error al eliminar el pedido:", error);
+    } finally {
+      setisSubir(false);
     }
   };
 
   return (
     <div style={styles.container}>
-      <h2 style={styles.title}>Actualizar Pedido</h2>
-      <div style={styles.card}>
-        {/* Sección de imágenes */}
-        <div style={styles.imageSection}>
-          <label style={styles.imageLabel}>
+      {loading ? (
+        <CircularProgress />
+      ) : (
+        <div style={styles.card}>
+          {/* Sección de imágenes */}
+          <div style={styles.imageSection}>
+            <label style={styles.imageLabel}>
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleImageChange}
+                style={styles.fileInput}
+                disabled={isSubir}
+              />
+              <p style={styles.addImageText}>+ Añadir imágenes</p>
+            </label>
+            <div style={styles.imageGrid}>
+              {imagePreviews.map((preview, index) => (
+                <div key={index} style={styles.imageWrapper}>
+                  <img src={preview} alt="Preview" style={styles.image} />
+                  <button
+                    style={styles.removeImageButton}
+                    onClick={() =>
+                      handleRemoveImage(index, pedido.image[index]?.public_id)
+                    }
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Detalles del pedido */}
+          <div style={styles.details}>
             <input
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={handleImageChange}
-              style={styles.fileInput}
+              type="text"
+              name="description"
+              value={pedido.description}
+              onChange={handleChange}
+              disabled={isSubir}
+              placeholder="Descripción"
+              style={styles.input}
             />
-            <p style={styles.addImageText}>+ Añadir imágenes</p>
-          </label>
-          <div style={styles.imageGrid}>
-            {imagePreviews.map((preview, index) => (
-              <div key={index} style={styles.imageWrapper}>
-                <img src={preview} alt="Preview" style={styles.image} />
+            <input
+              type="text"
+              name="time"
+              value={pedido.time}
+              onChange={handleChange}
+              disabled={isSubir}
+              placeholder="Tiempo"
+              style={styles.input}
+            />
+            <input
+              type="number"
+              name="quantity"
+              value={pedido.quantity}
+              onChange={handleChange}
+              disabled={isSubir}
+              placeholder="Cantidad"
+              style={styles.input}
+            />
+            {isSubir ? (
+              <CircularProgress />
+            ) : (
+              <div style={styles.buttonContainer}>
                 <button
-                  style={styles.removeImageButton}
-                  onClick={() =>
-                    handleRemoveImage(index, pedido.image[index]?.public_id)
-                  }
+                  style={styles.updateButton}
+                  onClick={() => {
+                    localStorage.removeItem(`pedido_${id}`); // Elimina el pedido almacenado
+                    handleActualizar();
+                  }}
                 >
-                  ×
+                  Actualizar Pedido
+                </button>
+                <button
+                  style={styles.deleteButton}
+                  onClick={() => {
+                    localStorage.clear(`pedido_${id}`);
+                    handleEliminar();
+                  }}
+                >
+                  Eliminar Pedido
                 </button>
               </div>
-            ))}
+            )}
           </div>
         </div>
-
-        {/* Detalles del pedido */}
-        <div style={styles.details}>
-          <input
-            type="text"
-            name="description"
-            value={pedido.description}
-            onChange={handleChange}
-            placeholder="Descripción"
-            style={styles.input}
-          />
-          <input
-            type="text"
-            name="time"
-            value={pedido.time}
-            onChange={handleChange}
-            placeholder="Tiempo"
-            style={styles.input}
-          />
-          <input
-            type="number"
-            name="quantity"
-            value={pedido.quantity}
-            onChange={handleChange}
-            placeholder="Cantidad"
-            style={styles.input}
-          />
-          <div style={styles.buttonContainer}>
-            <button style={styles.updateButton} onClick={handleActualizar}>
-              Actualizar Pedido
-            </button>
-            <button style={styles.deleteButton} onClick={handleEliminar}>
-              Eliminar Pedido
-            </button>
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import axios from "axios";
+import { CircularProgress } from "@mui/material";
 
 const API_URL = "http://169.254.192.108:3000";
 
@@ -10,6 +11,7 @@ function SolicitarPedido() {
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const userId = localStorage.getItem("userId"); // Obtener el ID del usuario
 
   const handleImagenChange = (e) => {
     const files = Array.from(e.target.files);
@@ -44,7 +46,7 @@ function SolicitarPedido() {
     images.forEach((img) => formData.append("images", img));
 
     try {
-      await axios.post(`${API_URL}/pedidos`, formData, {
+      await axios.post(`${API_URL}/${userId}`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
@@ -63,8 +65,6 @@ function SolicitarPedido() {
 
   return (
     <div style={styles.container}>
-      <h2 style={styles.title}>Solicitar Pedido</h2>
-      {loading && <p style={styles.loadingText}>Cargando...</p>}
       {errorMessage && <p style={styles.errorText}>{errorMessage}</p>}
 
       <form onSubmit={enviarSolicitud} style={styles.form}>
@@ -94,7 +94,25 @@ function SolicitarPedido() {
           required
           style={styles.input}
         />
-
+        {/* Previsualización de imágenes con opción de eliminar */}
+        <div style={styles.imageGrid}>
+          {images.map((image, index) => (
+            <div key={index} style={styles.imageContainer}>
+              <img
+                src={URL.createObjectURL(image)}
+                alt={`Imagen ${index + 1}`}
+                style={styles.imagePreview}
+              />
+              <button
+                type="button"
+                onClick={() => eliminarImagen(index)}
+                style={styles.deleteButton}
+              >
+                ❌
+              </button>
+            </div>
+          ))}
+        </div>
         {/* Selector de imágenes con avatar */}
         <label style={styles.imageLabel}>
           <input
@@ -107,31 +125,13 @@ function SolicitarPedido() {
           <div style={styles.avatarPlaceholder}>+</div>
         </label>
 
-        {/* Previsualización de imágenes con opción de eliminar */}
-        {images.length > 0 && (
-          <div style={styles.imageGrid}>
-            {images.map((image, index) => (
-              <div key={index} style={styles.imageContainer}>
-                <img
-                  src={URL.createObjectURL(image)}
-                  alt={`Imagen ${index + 1}`}
-                  style={styles.imagePreview}
-                />
-                <button
-                  type="button"
-                  onClick={() => eliminarImagen(index)}
-                  style={styles.deleteButton}
-                >
-                  ✖
-                </button>
-              </div>
-            ))}
-          </div>
+        {loading ? (
+          <CircularProgress />
+        ) : (
+          <button type="submit" style={styles.submitButton} disabled={loading}>
+            Enviar Solicitud
+          </button>
         )}
-
-        <button type="submit" style={styles.submitButton} disabled={loading}>
-          {loading ? "Enviando..." : "Enviar Solicitud"}
-        </button>
       </form>
     </div>
   );
@@ -141,7 +141,6 @@ const styles = {
   container: {
     width: "90%",
     maxWidth: "400px",
-    margin: "20px auto",
     textAlign: "center",
   },
   title: {
@@ -204,18 +203,17 @@ const styles = {
   },
   deleteButton: {
     position: "absolute",
-    top: "-5px",
-    right: "-5px",
-    background: "red",
+    top: "-8px",
+    right: "-8px",
+    background: "rgba(255, 255, 255, 0.8)",
     color: "white",
     border: "none",
     borderRadius: "50%",
-    width: "20px",
-    height: "20px",
-    cursor: "pointer",
-    fontSize: "14px",
-    lineHeight: "16px",
-    textAlign: "center",
+    width: "24px",
+    height: "24px",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
   },
   submitButton: {
     marginTop: "10px",

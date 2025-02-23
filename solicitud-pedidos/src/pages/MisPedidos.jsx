@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { CircularProgress } from "@mui/material";
 
 const API_URL = "http://localhost:3000";
 function MisPedidos() {
@@ -9,10 +10,15 @@ function MisPedidos() {
   const [error, setError] = useState(null);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const fetchPedidos = async () => {
+  const fetchPedidos = async () => {
+    // Obtener los pedidos almacenados en localStorage
+    const storedPedidos = localStorage.getItem("pedidos");
+    if (storedPedidos) {
+      setPedidos(JSON.parse(storedPedidos));
+      setLoading(false);
+    } else {
       try {
-        const response = await axios.get(`${API_URL}/pedidos`);
+        const response = await axios.get(`${API_URL}/pedidos/user`);
         setPedidos(response.data);
       } catch (err) {
         console.error("Error al obtener los pedidos:", err);
@@ -22,12 +28,15 @@ function MisPedidos() {
       } finally {
         setLoading(false);
       }
-    };
+    }
+  };
+
+  useEffect(() => {
     fetchPedidos();
   }, []);
 
   if (loading) {
-    return <p style={styles.loading}>Cargando pedidos...</p>;
+    return <CircularProgress />;
   }
 
   if (error) {
@@ -36,7 +45,6 @@ function MisPedidos() {
 
   return (
     <div style={styles.container}>
-      <h2 style={styles.title}>Mis Pedidos</h2>
       {pedidos.length === 0 ? (
         <p style={styles.noPedidos}>No tienes pedidos solicitados.</p>
       ) : (
@@ -81,7 +89,6 @@ const styles = {
   container: {
     width: "90%",
     maxWidth: "600px",
-    margin: "20px auto",
     textAlign: "center",
   },
   title: {
